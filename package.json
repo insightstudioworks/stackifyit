@@ -1,21 +1,33 @@
 {
-    "name": "stackifyit",
-    "version": "0.0.1",
-    "description": "",
-    "scripts": {
-        "sync": "ts-node src/scripts/sync.script.ts",
-        "main": "ts-node src/main.ts"
-    },
-    "dependencies": {
-        "chokidar": "^3.6.0",
-        "fast-glob": "^3.3.2",
-        "fs-extra": "^11.2.0",
-        "glob": "^10.4.2",
-        "path": "^0.12.7"
-    },
-    "devDependencies": {
-        "@types/fs-extra": "^11.0.4",
-        "@types/node": "^20.14.1",
-        "typescript": "^5.4.5"
-    }
+	"name": "stackifyit",
+	"version": "0.0.1",
+	"description": "",
+	"scripts": {
+		"sync": "ts-node src/scripts/sync.script.ts",
+		"main": "ts-node src/main.ts"
+	},
+	"dependencies": {
+		"chokidar": "^3.6.0",
+		"fast-glob": "^3.3.2",
+		"fs-extra": "^11.2.0",
+		"glob": "^10.4.2",
+		"path": "^0.12.7"
+	},
+	"devDependencies": {
+		"@types/fs-extra": "^11.0.4",
+		"@types/node": "^20.14.1",
+		"typescript": "^5.5.2"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/insightstudioworks/stackifyit.git"
+	},
+	"keywords": [
+		"file",
+		"sync",
+		"combine",
+		"glob",
+		"typescript"
+	],
+	"author": "Shawn Dotey"
 }
