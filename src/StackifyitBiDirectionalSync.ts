@@ -2,25 +2,49 @@ import chokidar from "chokidar";
 import fs from 'fs-extra';
 import path from 'path';
 import { singleGlobToList, filesFromGlob } from './tools/helpers/glob-helpers';
+import { readGitignore } from "./tools/helpers/readGitIngore";
+
+const predefinedIgnores:string[] = ['!**/.git/**'];
 
 export type StackifyitBiDirectionalSyncOptions = {
     rootDirectory: string;
     sourceGlob: string;
     targetDirs: string[];
+    useGitIngnoreFile?: string;
 };
 
 export class StackifyitBiDirectionalSync {
     private sourceWatcher: chokidar.FSWatcher;
     private targetWatchers: chokidar.FSWatcher[] = [];
+    predefinedIgnores:string[] = [];
     debug: boolean = false;
 
     constructor(private options: StackifyitBiDirectionalSyncOptions) {}
+    pathfromRoot(myPath:string){
+        return path.join(this.options.rootDirectory, myPath);
+    }
+    async allGlobs(){
+        this.predefinedIgnores = [...predefinedIgnores];
+        if(this.options.useGitIngnoreFile){
+            const gitIngnoreList = await readGitignore(this.pathfromRoot(this.options.useGitIngnoreFile));
+            //console.log('gitIngnoreList',...gitIngnoreList)
+            this.predefinedIgnores.push(...gitIngnoreList);
+        }
 
-    startWatch() {
-        this.stopWatch();
+        const sourceGlobs = this.options.sourceGlob.split(',');
+        const result = [
+            ...sourceGlobs,
+            ...this.predefinedIgnores
+        ].join(',')
+        //console.log('allGlobs', result)
+        return result;
+    }
+    async startWatch() {
+        await this.stopWatch();
 
         const { rootDirectory: sourceDirectory, sourceGlob, targetDirs } = this.options;
-        const patterns = singleGlobToList(sourceDirectory, sourceGlob);
+        const allGlobs = await this.allGlobs();
+        const patterns = singleGlobToList(sourceDirectory, allGlobs);
 
         this.sourceWatcher = chokidar.watch(patterns, {
             persistent: true,
@@ -50,13 +74,15 @@ export class StackifyitBiDirectionalSync {
         this.log(`Watching ${sourceGlob} in ${sourceDirectory}`);
     }
 
-    stopWatch() {
+    async stopWatch() {
+        const prom = []
         if (this.sourceWatcher) {
-            this.sourceWatcher.close();
+            prom.push(this.sourceWatcher.close());
         }
         for (const watcher of this.targetWatchers) {
-            watcher.close();
+            prom.push(watcher.close());
         }
+        await Promise.all(prom);
         this.targetWatchers = [];
     }
 
@@ -90,9 +116,9 @@ export class StackifyitBiDirectionalSync {
         };
     }
 
-    async copyAll() {
+    async copyToTargets() {
         const { rootDirectory: sourceDirectory, sourceGlob, targetDirs } = this.options;
-        const patterns = singleGlobToList(sourceDirectory, sourceGlob);
+        const patterns = singleGlobToList(sourceDirectory, await this.allGlobs());
         const files = await filesFromGlob(sourceDirectory, sourceGlob);
 
         for (const filePath of files) {

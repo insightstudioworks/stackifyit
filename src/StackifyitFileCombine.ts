@@ -40,7 +40,7 @@ export class StackifyitFileCombine {
             ...sourceGlobs,
             ...this.predefinedIgnores
         ].join(',')
-        console.log('allGlobs', result)
+        //console.log('allGlobs', result)
         return result;
     }
     async startWatch() {
