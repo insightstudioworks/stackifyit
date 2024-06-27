@@ -1,7 +1,7 @@
 
 import path from 'path';
-import { StackifyitFileCombine as StackifyitFileCombineSync } from './StackifyitFileCombine';
-import { StackifyitBiDirectionalSync as StackifyitFileBiDirectionalSync } from './StackifyitBiDirectionalSync';
+import { StackifyitFileCombine } from './StackifyitFileCombine';
+import { StackifyitBiDirectionalSync } from './StackifyitBiDirectionalSync';
 
 
 
@@ -10,7 +10,7 @@ async function main() {
 	const sourceGlob = '**/*';
 	const proms = [];
 	console.log(`Init ${base} for sync operations`)
-	const stackCombine = new StackifyitFileCombineSync({
+	const stackCombine = new StackifyitFileCombine({
 		rootDirectory: base,
 		sourceGlob,
 		outputPaths: ['./stackifyit-project.txt'],
@@ -20,11 +20,11 @@ async function main() {
 	proms.push(stackCombine.combine());
 	proms.push(stackCombine.startWatch());
 	
-	const bidirSourceGlob = '**/*,!stackifyit-project.txt';
-	const sync = new StackifyitFileBiDirectionalSync({
+	const bidirSourceGlob = '**/*,!stackifyit-project.txt,!dist';
+	const sync = new StackifyitBiDirectionalSync({
 		rootDirectory: base,
 		sourceGlob:bidirSourceGlob,
-		targetDirs: ['/Users/insig/myhome/repo/hubby/src/stackifyit'],
+		targetDirs: ['/Users/insig/myhome/repo/after-effects-scripts/src/stackifyit'],
 		useGitIngnoreFile: './.gitignore'
 	});
 	//sync.debug = true;

@@ -1,7 +1,7 @@
 import chokidar from "chokidar";
 import fs from 'fs/promises';
 import path from 'path';
-import { correctPaths, filesFromGlob, singleGlobToList, correctPaths as windowsPathToNode } from './tools/helpers/glob-helpers';
+import { correctPaths, filePathsFromGlob, singleGlobToList, correctPaths as windowsPathToNode } from './tools/helpers/glob-helpers';
 import { readGitignore } from "./tools/helpers/readGitIngore";
 
 const predefinedIgnores: string[] = ['!**/.git/**'];
@@ -21,7 +21,7 @@ export class StackifyitFileCombine {
 	constructor(private options: StackifyitFileCombineOptions) {
 	}
 	pathfromRoot(myPath: string) {
-		return path.join(this.options.rootDirectory, myPath);
+		return path.resolve(this.options.rootDirectory, myPath);
 	}
 	async allGlobs() {
 		this.predefinedIgnores = [...predefinedIgnores];
@@ -76,11 +76,11 @@ export class StackifyitFileCombine {
 
 	async combine() {
 		let projectText = "";
-		const paths = await filesFromGlob(this.options.rootDirectory, await this.allGlobs());
+		const paths = await filePathsFromGlob(this.options.rootDirectory, await this.allGlobs());
 		for (let filePath of paths) {
 			const nodePath = windowsPathToNode(filePath);
 			this.log(`Combine: ${nodePath}`)
-			const fileBuffer = await fs.readFile(this.pathfromRoot(nodePath));
+			const fileBuffer = await fs.readFile(nodePath);
 			const fileContent = fileBuffer.toString();
 			projectText += 'File:' + nodePath + "\n----------\n" + fileContent + "\n----------" + "\n";
 		}

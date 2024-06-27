@@ -15,11 +15,8 @@ export function singleGlobToList(rootDirectory: string, globPaths: string) {
     });
 }
 
-export async function filesFromGlob(rootDirectory: string, globPaths: string) {
-    
+export async function filePathsFromGlob(rootDirectory: string, globPaths: string) {
     const combinedPatternsArray = singleGlobToList(rootDirectory, globPaths);
     const files = fg.sync(combinedPatternsArray, { dot: true });
-    return files.map((file: string) => path.relative(rootDirectory, file));
-   
     return files;
 }

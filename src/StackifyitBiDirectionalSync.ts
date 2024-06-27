@@ -1,7 +1,7 @@
 import chokidar from "chokidar";
 import fs from 'fs-extra';
 import path from 'path';
-import { singleGlobToList, filesFromGlob } from './tools/helpers/glob-helpers';
+import { singleGlobToList, filePathsFromGlob } from './tools/helpers/glob-helpers';
 import { readGitignore } from "./tools/helpers/readGitIngore";
 
 const predefinedIgnores: string[] = ['!**/.git/**'];
@@ -118,12 +118,13 @@ export class StackifyitBiDirectionalSync {
 
 	async copyToTargets() {
 		const { rootDirectory: sourceDirectory, sourceGlob, targetDirs } = this.options;
-		const patterns = singleGlobToList(sourceDirectory, await this.allGlobs());
-		const files = await filesFromGlob(sourceDirectory, sourceGlob);
-
+		//const patterns = singleGlobToList(sourceDirectory, await this.allGlobs());
+		const allGlobs = await this.allGlobs();
+		const files = await filePathsFromGlob(sourceDirectory, allGlobs);
+		
 		for (const filePath of files) {
-			const relativePath = path.relative(sourceDirectory, filePath);
 			for (const targetDir of targetDirs) {
+				const relativePath = path.relative(sourceDirectory, filePath);
 				const targetPath = path.join(targetDir, relativePath);
 				fs.copy(filePath, targetPath)
 					.then(() => this.log(`Copied ${filePath} to ${targetPath}`))
