@@ -6,88 +6,119 @@ import { readGitignore } from "./tools/helpers/readGitIngore";
 
 const predefinedIgnores: string[] = ['!**/.git/**'];
 
-
 export type StackifyitFileCombineOptions = {
-	rootDirectory: string;
-	sourceGlob: string;
-	outputPaths: string[];
-	useGitIngnoreFile?: string;
+    rootDirectory: string;
+    sourceGlob: string;
+    outputPaths: string[];
+    useGitIngnoreFile?: string;
 }
 
+/**
+ * Class to combine files from a source directory matching a specified glob pattern and output the combined content to specified paths.
+ */
 export class StackifyitFileCombine {
-	debug: boolean = false;
-	watcher: chokidar.FSWatcher;
-	predefinedIgnores: string[] = [];
-	constructor(private options: StackifyitFileCombineOptions) {
-	}
-	pathfromRoot(myPath: string) {
-		return path.resolve(this.options.rootDirectory, myPath);
-	}
-	async allGlobs() {
-		this.predefinedIgnores = [...predefinedIgnores];
-		if (this.options.useGitIngnoreFile) {
-			const gitIngnoreList = await readGitignore(this.pathfromRoot(this.options.useGitIngnoreFile));
-			//console.log('gitIngnoreList',...gitIngnoreList)
-			this.predefinedIgnores.push(...gitIngnoreList);
-		}
+    debug: boolean = false;
+    watcher: chokidar.FSWatcher;
+    predefinedIgnores: string[] = [];
+    
+    constructor(private options: StackifyitFileCombineOptions) {}
 
-		const ingnoreOutputs = this.options.outputPaths.map(p => {
-			return `!${this.pathfromRoot(correctPaths(p))}`
-		});
-		const sourceGlobs = this.options.sourceGlob.split(',');
-		const result = [
-			...ingnoreOutputs,
-			...sourceGlobs,
-			...this.predefinedIgnores
-		].join(',')
-		//console.log('allGlobs', result)
-		return result;
-	}
-	async startWatch() {
-		this.stopWatch();
+    /**
+     * Converts a given path to an absolute path from the root directory.
+     * @param {string} myPath - The path to convert.
+     * @returns {string} The absolute path.
+     */
+    pathfromRoot(myPath: string): string {
+        return path.resolve(this.options.rootDirectory, myPath);
+    }
 
-		const patterns = singleGlobToList(this.options.rootDirectory, await this.allGlobs());
+    /**
+     * Combines all glob patterns, including user-defined and predefined ignores.
+     * @returns {Promise<string>} The combined list of glob patterns.
+     */
+    async allGlobs(): Promise<string> {
+        this.predefinedIgnores = [...predefinedIgnores];
+        if (this.options.useGitIngnoreFile) {
+            const gitIngnoreList = await readGitignore(this.pathfromRoot(this.options.useGitIngnoreFile));
+            console.log('gitIngnoreList', ...gitIngnoreList)
+            this.predefinedIgnores.push(...gitIngnoreList);
+        }
 
-		patterns.push(...predefinedIgnores);
-		this.watcher = chokidar.watch(patterns, {
-			persistent: true,
-			ignoreInitial: false // do not ignore any files
-		});
+        const ingnoreOutputs = this.options.outputPaths.map(p => {
+            return `!${this.pathfromRoot(correctPaths(p))}`
+        });
+        const sourceGlobs = this.options.sourceGlob.split(',');
+        const result = [
+            ...ingnoreOutputs,
+            ...sourceGlobs,
+            ...this.predefinedIgnores
+        ].join(',')
+        console.log('allGlobs', result)
+        return result;
+    }
 
-		this.watcher.on('change', (event, filePath) => {
-			this.log(`Event: ${event}, Path: ${filePath}`);
-			this.combine();
-		});
+    /**
+     * Starts watching the source directory for changes.
+     * @returns {Promise<void>}
+     */
+    async startWatch(): Promise<void> {
+        await this.stopWatch();
 
-		this.log(`Watching ${this.options.sourceGlob} in ${this.options.rootDirectory}`);
-	}
+        const patterns = singleGlobToList(this.options.rootDirectory, await this.allGlobs());
 
-	async stopWatch() {
-		if (this.watcher) {
-			await this.watcher.close();
-		}
-	}
+        patterns.push(...predefinedIgnores);
+        this.watcher = chokidar.watch(patterns, {
+            persistent: true,
+            ignoreInitial: false // do not ignore any files
+        });
 
-	log(...logs: any[]) {
-		if (this.debug) {
-			console.log(...logs);
-		}
-	}
+        this.watcher.on('change', (filePath) => {
+            this.log(`File changed: ${filePath}`);
+            this.combine();
+        });
 
-	async combine() {
-		let projectText = "";
-		const paths = await filePathsFromGlob(this.options.rootDirectory, await this.allGlobs());
-		for (let filePath of paths) {
-			const nodePath = windowsPathToNode(filePath);
-			this.log(`Combine: ${nodePath}`)
-			const fileBuffer = await fs.readFile(nodePath);
-			const fileContent = fileBuffer.toString();
-			projectText += 'File:' + nodePath + "\n----------\n" + fileContent + "\n----------" + "\n";
-		}
+        this.log(`Watching ${this.options.sourceGlob} in ${this.options.rootDirectory}`);
+    }
 
-		for (const projectTextSavePath of this.options.outputPaths) {
-			await fs.writeFile(projectTextSavePath, this.pathfromRoot(projectText));
-			this.log(`Copied Combined into ${this.pathfromRoot(projectTextSavePath)}`)
-		}
-	}
+    /**
+     * Stops watching the source directory for changes.
+     * @returns {Promise<void>}
+     */
+    async stopWatch(): Promise<void> {
+        if (this.watcher) {
+            await this.watcher.close();
+        }
+    }
+
+    /**
+     * Logs messages if debug mode is enabled.
+     * @param {...any} logs - The messages to log.
+     * @returns {void}
+     */
+    log(...logs: any[]): void {
+        if (this.debug) {
+            console.log(...logs);
+        }
+    }
+
+    /**
+     * Combines the content of files matching the glob patterns and saves to output paths.
+     * @returns {Promise<void>}
+     */
+    async combine(): Promise<void> {
+        let projectText = "";
+        const paths = await filePathsFromGlob(this.options.rootDirectory, await this.allGlobs());
+        for (let filePath of paths) {
+            const nodePath = windowsPathToNode(filePath);
+            this.log(`Combine: ${nodePath}`)
+            const fileBuffer = await fs.readFile(nodePath);
+            const fileContent = fileBuffer.toString();
+            projectText += 'File:' + nodePath + "\n----------\n" + fileContent + "\n----------" + "\n";
+        }
+
+        for (const projectTextSavePath of this.options.outputPaths) {
+            await fs.writeFile(this.pathfromRoot(projectTextSavePath), projectText);
+            this.log(`Copied Combined into ${this.pathfromRoot(projectTextSavePath)}`)
+        }
+    }
 }

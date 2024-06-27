@@ -20,16 +20,16 @@ async function main() {
 	proms.push(stackCombine.combine());
 	proms.push(stackCombine.startWatch());
 	
-	const bidirSourceGlob = '**/*,!stackifyit-project.txt,!dist';
-	const sync = new StackifyitBiDirectionalSync({
-		rootDirectory: base,
-		sourceGlob:bidirSourceGlob,
-		targetDirs: ['/Users/insig/myhome/repo/after-effects-scripts/src/stackifyit'],
-		useGitIngnoreFile: './.gitignore'
-	});
-	//sync.debug = true;
-	proms.push(sync.copyToTargets()); // Copy all files initially
-	proms.push(sync.startWatch());	
+	// const bidirSourceGlob = '**/*,!stackifyit-project.txt,!dist';
+	// const sync = new StackifyitBiDirectionalSync({
+	// 	rootDirectory: base,
+	// 	sourceGlob:bidirSourceGlob,
+	// 	targetDirs: ['/Users/insig/myhome/repo/after-effects-scripts/src/stackifyit'],
+	// 	useGitIngnoreFile: './.gitignore'
+	// });
+	// //sync.debug = true;
+	// proms.push(sync.copyToTargets()); // Copy all files initially
+	// proms.push(sync.startWatch());	
 	await Promise.all(proms);
 	console.log(`Ready, watching ${base} for sync operations`)
 }

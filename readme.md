@@ -5,7 +5,7 @@ Stackifyit is a toolset for synchronizing and combining files across directories
 ## Installation
 
 ```sh
-npm install stackifyit
+npm install stackifyit --save-dev
 ```
 
 ## Usage
@@ -46,6 +46,12 @@ main();
 - `outputPaths`: Array of paths where the combined content will be saved.
 - `useGitIngnoreFile`: Optional path to a `.gitignore` file for excluding files.
 
+#### Methods
+
+- **`startWatch()`**: Starts watching the specified source directory and combines files based on changes.
+- **`stopWatch()`**: Stops the file watcher.
+- **`combine()`**: Combines files based on the specified glob pattern and outputs the combined content to the specified paths.
+
 ### StackifyitBiDirectionalSync
 
 The `StackifyitBiDirectionalSync` class synchronizes files bidirectionally between a source directory and multiple target directories. It ensures that changes in any directory are reflected in all other directories.
@@ -82,23 +88,11 @@ main();
 - `targetDirs`: Array of target directories to sync files to.
 - `useGitIngnoreFile`: Optional path to a `.gitignore` file for excluding files.
 
-## Common Methods
+#### Methods
 
-### `startWatch()`
-
-Starts watching the specified source directory and synchronizes or combines files based on changes.
-
-### `stopWatch()`
-
-Stops the file watcher.
-
-### `combine()`
-
-Combines files based on the specified glob pattern and outputs the combined content to the specified paths. Used in `StackifyitFileCombine`.
-
-### `copyToTargets()`
-
-Copies all files from the source directory to the target directories initially. Used in `StackifyitBiDirectionalSync`.
+- **`startWatch()`**: Starts watching the specified source directory and synchronizes files based on changes.
+- **`stopWatch()`**: Stops the file watcher.
+- **`copyToTargets()`**: Copies all files from the source directory to the target directories initially.
 
 ## License
 

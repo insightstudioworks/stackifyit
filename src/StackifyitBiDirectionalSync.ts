@@ -7,129 +7,171 @@ import { readGitignore } from "./tools/helpers/readGitIngore";
 const predefinedIgnores: string[] = ['!**/.git/**'];
 
 export type StackifyitBiDirectionalSyncOptions = {
-	rootDirectory: string;
-	sourceGlob: string;
-	targetDirs: string[];
-	useGitIngnoreFile?: string;
-};
+    rootDirectory: string;
+    sourceGlob: string;
+    targetDirs: string[];
+    useGitIngnoreFile?: string;
+}
 
+/**
+ * Class to synchronize files bidirectionally between a source directory and multiple target directories.
+ */
 export class StackifyitBiDirectionalSync {
-	private sourceWatcher: chokidar.FSWatcher;
-	private targetWatchers: chokidar.FSWatcher[] = [];
-	predefinedIgnores: string[] = [];
-	debug: boolean = false;
+    private sourceWatcher: chokidar.FSWatcher;
+    private targetWatchers: chokidar.FSWatcher[] = [];
+    predefinedIgnores: string[] = [];
+    debug: boolean = false;
 
-	constructor(private options: StackifyitBiDirectionalSyncOptions) { }
-	pathfromRoot(myPath: string) {
-		return path.join(this.options.rootDirectory, myPath);
-	}
-	async allGlobs() {
-		this.predefinedIgnores = [...predefinedIgnores];
-		if (this.options.useGitIngnoreFile) {
-			const gitIngnoreList = await readGitignore(this.pathfromRoot(this.options.useGitIngnoreFile));
-			//console.log('gitIngnoreList',...gitIngnoreList)
-			this.predefinedIgnores.push(...gitIngnoreList);
-		}
+    constructor(private options: StackifyitBiDirectionalSyncOptions) {}
 
-		const sourceGlobs = this.options.sourceGlob.split(',');
-		const result = [
-			...sourceGlobs,
-			...this.predefinedIgnores
-		].join(',')
-		//console.log('allGlobs', result)
-		return result;
-	}
-	async startWatch() {
-		await this.stopWatch();
+    /**
+     * Converts a given path to an absolute path from the root directory.
+     * @param {string} myPath - The path to convert.
+     * @returns {string} The absolute path.
+     */
+    pathfromRoot(myPath: string): string {
+        return path.join(this.options.rootDirectory, myPath);
+    }
 
-		const { rootDirectory: sourceDirectory, sourceGlob, targetDirs } = this.options;
-		const allGlobs = await this.allGlobs();
-		const patterns = singleGlobToList(sourceDirectory, allGlobs);
+    /**
+     * Combines all glob patterns, including user-defined and predefined ignores.
+     * @returns {Promise<string>} The combined list of glob patterns.
+     */
+    async allGlobs(): Promise<string> {
+        this.predefinedIgnores = [...predefinedIgnores];
+        if (this.options.useGitIngnoreFile) {
+            const gitIngnoreList = await readGitignore(this.pathfromRoot(this.options.useGitIngnoreFile));
+            console.log('gitIngnoreList', gitIngnoreList)
+            this.predefinedIgnores.push(...gitIngnoreList);
+        }
 
-		this.sourceWatcher = chokidar.watch(patterns, {
-			persistent: true,
-			ignoreInitial: true,
-		});
+        const sourceGlobs = this.options.sourceGlob.split(',');
+        const result = [
+            ...sourceGlobs,
+            ...this.predefinedIgnores
+        ].join(',')
+        console.log('allGlobs', result)
+        return result;
+    }
 
-		this.sourceWatcher
-			.on('add', this.syncFile(targetDirs, sourceDirectory))
-			.on('change', this.syncFile(targetDirs, sourceDirectory))
-		//.on('unlink', this.removeFile(targetDirs, sourceDirectory));
+    /**
+     * Starts watching the source and target directories for changes.
+     * @returns {Promise<void>}
+     */
+    async startWatch(): Promise<void> {
+        await this.stopWatch();
 
-		for (const targetDir of targetDirs) {
-			const targetWatcher = chokidar.watch(targetDir, {
-				persistent: true,
-				ignoreInitial: true,
-			});
+        const { rootDirectory: sourceDirectory, sourceGlob, targetDirs } = this.options;
+        const allGlobs = await this.allGlobs();
+        const patterns = singleGlobToList(sourceDirectory, allGlobs);
 
-			targetWatcher
-				.on('add', this.syncFile([sourceDirectory], targetDir))
-				.on('change', this.syncFile([sourceDirectory], targetDir))
-			//.on('unlink', this.removeFile([sourceDirectory], targetDir));
+        this.sourceWatcher = chokidar.watch(patterns, {
+            persistent: true,
+            ignoreInitial: true,
+        });
 
-			this.targetWatchers.push(targetWatcher);
-			this.log(`Watching ${targetDir}`);
-		}
+        this.sourceWatcher
+            .on('add', this.syncFile(targetDirs, sourceDirectory))
+            .on('change', this.syncFile(targetDirs, sourceDirectory))
+            .on('unlink', this.removeFile(targetDirs, sourceDirectory));
 
-		this.log(`Watching ${sourceGlob} in ${sourceDirectory}`);
-	}
+        for (const targetDir of targetDirs) {
+            const targetWatcher = chokidar.watch(targetDir, {
+                persistent: true,
+                ignoreInitial: true,
+            });
 
-	async stopWatch() {
-		const prom = []
-		if (this.sourceWatcher) {
-			prom.push(this.sourceWatcher.close());
-		}
-		for (const watcher of this.targetWatchers) {
-			prom.push(watcher.close());
-		}
-		await Promise.all(prom);
-		this.targetWatchers = [];
-	}
+            targetWatcher
+                .on('add', this.syncFile([sourceDirectory], targetDir))
+                .on('change', this.syncFile([sourceDirectory], targetDir))
+                .on('unlink', this.removeFile([sourceDirectory], targetDir));
 
-	private log(...logs: any[]) {
-		if (this.debug) {
-			console.log(...logs);
-		}
-	}
+            this.targetWatchers.push(targetWatcher);
+            this.log(`Watching ${targetDir}`);
+        }
 
-	private syncFile(targetDirs: string[], baseDir: string) {
-		return (filePath: string) => {
-			const relativePath = path.relative(baseDir, filePath);
-			for (const targetDir of targetDirs) {
-				const targetPath = path.join(targetDir, relativePath);
-				fs.copy(filePath, targetPath)
-					.then(() => this.log(`Copied ${filePath} to ${targetPath}`))
-					.catch((err: any) => this.log(`Error copying ${filePath} to ${targetPath}`, err));
-			}
-		};
-	}
+        this.log(`Watching ${sourceGlob} in ${sourceDirectory}`);
+    }
 
-	private removeFile(targetDirs: string[], baseDir: string) {
-		return (filePath: string) => {
-			const relativePath = path.relative(baseDir, filePath);
-			for (const targetDir of targetDirs) {
-				const targetPath = path.join(targetDir, relativePath);
-				fs.remove(targetPath)
-					.then(() => this.log(`Removed ${targetPath}`))
-					.catch((err: any) => this.log(`Error removing ${targetPath}`, err));
-			}
-		};
-	}
+    /**
+     * Stops watching the source and target directories for changes.
+     * @returns {Promise<void>}
+     */
+    async stopWatch(): Promise<void> {
+        const prom = []
+        if (this.sourceWatcher) {
+            prom.push(this.sourceWatcher.close());
+        }
+        for (const watcher of this.targetWatchers) {
+            prom.push(watcher.close());
+        }
+        await Promise.all(prom);
+        this.targetWatchers = [];
+    }
 
-	async copyToTargets() {
-		const { rootDirectory: sourceDirectory, sourceGlob, targetDirs } = this.options;
-		//const patterns = singleGlobToList(sourceDirectory, await this.allGlobs());
-		const allGlobs = await this.allGlobs();
-		const files = await filePathsFromGlob(sourceDirectory, allGlobs);
-		
-		for (const filePath of files) {
-			for (const targetDir of targetDirs) {
-				const relativePath = path.relative(sourceDirectory, filePath);
-				const targetPath = path.join(targetDir, relativePath);
-				fs.copy(filePath, targetPath)
-					.then(() => this.log(`Copied ${filePath} to ${targetPath}`))
-					.catch((err: any) => this.log(`Error copying ${filePath} to ${targetPath}`, err));
-			}
-		}
-	}
+    /**
+     * Logs messages if debug mode is enabled.
+     * @param {...any} logs - The messages to log.
+     * @returns {void}
+     */
+    private log(...logs: any[]): void {
+        if (this.debug) {
+            console.log(...logs);
+        }
+    }
+
+    /**
+     * Synchronizes a file from the base directory to the target directories.
+     * @param {string[]} targetDirs - The target directories.
+     * @param {string} baseDir - The base directory.
+     * @returns {(filePath: string) => void} A function to synchronize a file.
+     */
+    private syncFile(targetDirs: string[], baseDir: string): (filePath: string) => void {
+        return (filePath: string) => {
+            const relativePath = path.relative(baseDir, filePath);
+            for (const targetDir of targetDirs) {
+                const targetPath = path.join(targetDir, relativePath);
+                fs.copy(filePath, targetPath)
+                    .then(() => this.log(`Copied ${filePath} to ${targetPath}`))
+                    .catch((err: any) => this.log(`Error copying ${filePath} to ${targetPath}`, err));
+            }
+        };
+    }
+
+    /**
+     * Removes a file from the target directories.
+     * @param {string[]} targetDirs - The target directories.
+     * @param {string} baseDir - The base directory.
+     * @returns {(filePath: string) => void} A function to remove a file.
+     */
+    private removeFile(targetDirs: string[], baseDir: string): (filePath: string) => void {
+        return (filePath: string) => {
+            const relativePath = path.relative(baseDir, filePath);
+            for (const targetDir of targetDirs) {
+                const targetPath = path.join(targetDir, relativePath);
+                fs.remove(targetPath)
+                    .then(() => this.log(`Removed ${targetPath}`))
+                    .catch((err: any) => this.log(`Error removing ${targetPath}`, err));
+            }
+        };
+    }
+
+    /**
+     * Copies all files from the source directory to the target directories initially.
+     * @returns {Promise<void>}
+     */
+    async copyToTargets(): Promise<void> {
+        const patterns = await this.allGlobs();
+        const files = singleGlobToList(this.options.rootDirectory, patterns);
+
+        for (const filePath of files) {
+            for (const targetDir of this.options.targetDirs) {
+                const relativePath = path.relative(this.options.rootDirectory, filePath);
+                const targetPath = path.join(targetDir, relativePath);
+                fs.copy(filePath, targetPath)
+                    .then(() => this.log(`Copied ${filePath} to ${targetPath}`))
+                    .catch((err: any) => this.log(`Error copying ${filePath} to ${targetPath}`, err));
+            }
+        }
+    }
 }
