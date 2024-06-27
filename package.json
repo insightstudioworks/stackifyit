@@ -1,6 +1,6 @@
 {
 	"name": "stackifyit",
-	"version": "0.0.3",
+	"version": "0.0.4",
 	"description": "A toolset for synchronizing and combining files in directories, utilizing glob patterns and respecting .gitignore rules.",
 	"main": "dist/index.js",
   "types": "dist/index.d.ts",
