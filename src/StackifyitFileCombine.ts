@@ -3,33 +3,27 @@ import fs from 'fs/promises';
 import path from 'path';
 import { correctPaths, filePathsFromGlob, singleGlobToList, correctPaths as windowsPathToNode } from './tools/helpers/glob-helpers';
 import { readGitignore } from "./tools/helpers/readGitIngore";
+import { StackifyitBase, StackifyitOptionsBase } from "./StackifyItBase.abstract";
 
 const predefinedIgnores: string[] = ['!**/.git/**'];
 
-export type StackifyitFileCombineOptions = {
-    rootDirectory: string;
+export type StackifyitFileCombineOptions = StackifyitOptionsBase & {
     sourceGlob: string;
     outputPaths: string[];
     useGitIngnoreFile?: string;
 }
 
 /**
- * Class to combine files from a source directory matching a specified glob pattern and output the combined content to specified paths.
+ * StackifyitFileCombine class.
+ * This class is responsible for combining files.
  */
-export class StackifyitFileCombine {
+export class StackifyitFileCombine extends StackifyitBase {
     debug: boolean = false;
-    watcher: chokidar.FSWatcher;
+    watcher!: chokidar.FSWatcher;
     predefinedIgnores: string[] = [];
-    
-    constructor(private options: StackifyitFileCombineOptions) {}
 
-    /**
-     * Converts a given path to an absolute path from the root directory.
-     * @param {string} myPath - The path to convert.
-     * @returns {string} The absolute path.
-     */
-    pathfromRoot(myPath: string): string {
-        return path.resolve(this.options.rootDirectory, myPath);
+    constructor(protected options: StackifyitFileCombineOptions) {
+        super(options);
     }
 
     /**
@@ -63,10 +57,8 @@ export class StackifyitFileCombine {
      */
     async startWatch(): Promise<void> {
         await this.stopWatch();
-
-        const patterns = singleGlobToList(this.options.rootDirectory, await this.allGlobs());
-
-        patterns.push(...predefinedIgnores);
+        const patterns = await this.allGlobs();
+        this.predefinedIgnores.push(...predefinedIgnores);
         this.watcher = chokidar.watch(patterns, {
             persistent: true,
             ignoreInitial: false // do not ignore any files
@@ -97,7 +89,12 @@ export class StackifyitFileCombine {
      */
     log(...logs: any[]): void {
         if (this.debug) {
-            console.log(...logs);
+            if(this.options.logger){
+                this.options.logger(...logs);
+            }
+            else{
+                console.log(...logs);
+            }
         }
     }
 
@@ -113,7 +110,7 @@ export class StackifyitFileCombine {
             this.log(`Combine: ${nodePath}`)
             const fileBuffer = await fs.readFile(nodePath);
             const fileContent = fileBuffer.toString();
-            projectText += 'File:' + nodePath + "\n----------\n" + fileContent + "\n----------" + "\n";
+            projectText += 'File:' + nodePath + "\n----------\n" + fileContent + "\n----------\n";
         }
 
         for (const projectTextSavePath of this.options.outputPaths) {

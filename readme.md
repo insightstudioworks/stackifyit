@@ -1,6 +1,7 @@
+
 # Stackifyit
 
-Stackifyit is a toolset for synchronizing and combining files across directories, utilizing glob patterns and `.gitignore` rules for selective file operations. This project provides two primary classes: `StackifyitBiDirectionalSync` and `StackifyitFileCombine`.
+Stackifyit is a toolset for synchronizing and combining files across directories, utilizing glob patterns and `.gitignore` rules for selective file operations. This project provides three primary classes: `StackifyitBiDirectionalSync`, `StackifyitFileCombine`, and `StackifyitFileZip`.
 
 ## Installation
 
@@ -94,7 +95,48 @@ main();
 - **`stopWatch()`**: Stops the file watcher.
 - **`copyToTargets()`**: Copies all files from the source directory to the target directories initially.
 
+### StackifyitFileZip
+
+The `StackifyitFileZip` class provides functionality for zipping files from a source directory matching a specified glob pattern and outputs the zipped files to specified paths.
+
+#### Example
+
+```typescript
+import { StackifyitFileZip } from 'stackifyit';
+import path from 'path';
+
+async function main() {
+    const base = path.resolve(__dirname, '..');
+    const sourceGlob = '**/*';
+    const outputPaths = ['output.zip'];
+    const stackZip = new StackifyitFileZip({
+        rootDirectory: base,
+        sourceGlob,
+        outputPaths,
+        useGitIngnoreFile: '.gitignore'
+    });
+
+    stackZip.debug = true;
+    await stackZip.zipFiles();
+    stackZip.startWatch();
+}
+
+main();
+```
+
+#### Options
+
+- `rootDirectory`: The root directory to watch and zip files from.
+- `sourceGlob`: Glob pattern to match source files.
+- `outputPaths`: Array of paths where the zipped files will be saved.
+- `useGitIngnoreFile`: Optional path to a `.gitignore` file for excluding files.
+
+#### Methods
+
+- **`startWatch()`**: Starts watching the specified source directory and zips files based on changes.
+- **`stopWatch()`**: Stops the file watcher.
+- **`zipFiles()`**: Zips files based on the specified glob pattern and outputs the zipped files to the specified paths.
+
 ## License
 
 This project is licensed under the MIT License.
-
