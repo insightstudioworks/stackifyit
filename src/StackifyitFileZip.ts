@@ -70,7 +70,8 @@ export class StackifyitFileZip extends StackifyitFileWatcherBase {
         const { rootDirectory, outputPaths } = this.options;
 
         for (const outputPath of outputPaths) {
-            const output = fs.createWriteStream(outputPath);
+            const relativePath = path.resolve(this.options.rootDirectory, outputPath);
+            const output = fs.createWriteStream(relativePath);
             const archive = archiver('zip', {
                 zlib: { level: 9 }
             });
@@ -87,7 +88,7 @@ export class StackifyitFileZip extends StackifyitFileWatcherBase {
             });
 
             archive.pipe(output);
-            
+
             const filesToZip = await filePathsFromGlob(rootDirectory, await this.allGlobs());
             filesToZip.forEach(file => {
                 this.log(`zipping ${file}`)
@@ -96,7 +97,7 @@ export class StackifyitFileZip extends StackifyitFileWatcherBase {
             });
 
             await archive.finalize();
-            this.log(`zipping finalized to ${outputPath}`)
+            this.log(`zipping finalized to ${relativePath}`)
         }
     }
 
