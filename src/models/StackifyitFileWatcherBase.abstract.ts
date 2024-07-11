@@ -3,6 +3,7 @@ import chokidar from "chokidar";
 
 export type StackifyitOptionsBase = {
     rootDirectory: string;
+    useGitIngnoreFile?: string;
     logger?:(...logs: any[])=> {}
 }
 
@@ -10,10 +11,9 @@ export type StackifyitOptionsBase = {
  * Abstract base class for Stackifyit classes.
  * Provides common functionality and properties for all derived classes.
  */
-export abstract class StackifyitBase {
+export abstract class StackifyitFileWatcherBase {
     protected watcher!: chokidar.FSWatcher;
     debug: boolean = false;
-
     constructor(protected options: StackifyitOptionsBase) {}
 
     /**
@@ -24,19 +24,21 @@ export abstract class StackifyitBase {
     pathfromRoot(myPath: string): string {
         return path.resolve(this.options.rootDirectory, myPath);
     }
+    stopPromise = new Promise((r=>r(null)));
+    stopResolve:() => void = ()=>{};
+    createStopPromise(){
+        this.stopResolve();
+        this.stopPromise = new Promise((resolve) => {
+            this.stopResolve = resolve as () => void;
+        });
+    }
 
     /**
      * Waits until the watcher is closed and then returns.
      * @returns {Promise<void>}
      */
     async waitUntilStopped(): Promise<void> {
-        if (this.watcher) {
-            return new Promise((resolve) => {
-                this.watcher.close().then(() => {
-                    resolve();
-                });
-            });
-        }
+        await this.stopPromise;
     }
 
     /**

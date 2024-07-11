@@ -2,23 +2,22 @@ import path from 'path';
 import fs from 'fs-extra';
 import chokidar from 'chokidar';
 import archiver from 'archiver';
-import { correctPaths, filePathsFromGlob } from './tools/helpers/glob-helpers';
+import { correctPaths, filePathsFromGlob, singleGlobToList } from './tools/helpers/glob-helpers';
 import { readGitignore } from './tools/helpers/readGitIngore';
-import { StackifyitBase, StackifyitOptionsBase } from './StackifyItBase.abstract';
+import { StackifyitFileWatcherBase, StackifyitOptionsBase } from './models/StackifyitFileWatcherBase.abstract';
 
 const predefinedIgnores: string[] = ['!**/.git/**'];
 
 type StackifyitFileZipOptions = StackifyitOptionsBase & {
     sourceGlob: string;
     outputPaths: string[];
-    useGitIngnoreFile?: string;
 }
 
 /**
  * StackifyitFileZip class.
  * This class is responsible for file zip operations.
  */
-export class StackifyitFileZip extends StackifyitBase {
+export class StackifyitFileZip extends StackifyitFileWatcherBase {
     protected watcher!: chokidar.FSWatcher;
     private predefinedIgnores: string[] = [];
     debug: boolean = false;
@@ -33,12 +32,11 @@ export class StackifyitFileZip extends StackifyitBase {
      */
     async startWatch(): Promise<void> {
         await this.stopWatch();
+        this.createStopPromise();
 
         const { rootDirectory, sourceGlob } = this.options;
-        const allGlobs = await this.allGlobs();
-        const patterns = this.singleGlobToList(rootDirectory, allGlobs);
-
-        this.watcher = chokidar.watch(patterns, {
+        const sourcePatterns = singleGlobToList(this.options.rootDirectory, await this.allGlobs());
+        this.watcher = chokidar.watch(sourcePatterns, {
             persistent: true,
             ignoreInitial: true,
         });
@@ -61,6 +59,7 @@ export class StackifyitFileZip extends StackifyitBase {
         if (this.watcher) {
             await this.watcher.close();
         }
+        this.stopResolve();
     }
 
     /**
@@ -97,10 +96,10 @@ export class StackifyitFileZip extends StackifyitBase {
             });
 
             await archive.finalize();
-            this.log(`zipping finalized`)
+            this.log(`zipping finalized to ${outputPath}`)
         }
     }
-    
+
     /**
      * Combines all glob patterns, including user-defined and predefined ignores.
      * @returns {Promise<string>} The combined list of glob patterns.
@@ -126,13 +125,4 @@ export class StackifyitFileZip extends StackifyitBase {
         return result;
     }
 
-    /**
-     * Converts a single glob pattern to a list of absolute paths.
-     * @param {string} rootDirectory - The root directory.
-     * @param {string} allGlobs - The combined list of glob patterns.
-     * @returns {string[]} The list of absolute paths.
-     */
-    singleGlobToList(rootDirectory: string, allGlobs: string): string[] {
-        return allGlobs.split(',').map(glob => path.join(rootDirectory, glob));
-    }
 }

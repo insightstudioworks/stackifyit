@@ -3,21 +3,20 @@ import fs from 'fs-extra';
 import path from 'path';
 import { singleGlobToList, filePathsFromGlob } from './tools/helpers/glob-helpers';
 import { readGitignore } from "./tools/helpers/readGitIngore";
-import { StackifyitBase, StackifyitOptionsBase } from "./StackifyItBase.abstract";
+import { StackifyitFileWatcherBase, StackifyitOptionsBase } from "./models/StackifyitFileWatcherBase.abstract";
 
 const predefinedIgnores: string[] = ['!**/.git/**'];
 
 export type StackifyitBiDirectionalSyncOptions = StackifyitOptionsBase & {
     sourceGlob: string;
     targetDirs: string[];
-    useGitIngnoreFile?: string;
 }
 
 /**
  * StackifyitBiDirectionalSync class.
  * This class is responsible for synchronizing files bidirectionally.
  */
-export class StackifyitBiDirectionalSync extends StackifyitBase{
+export class StackifyitBiDirectionalSync extends StackifyitFileWatcherBase{
     private sourceWatcher!: chokidar.FSWatcher;
     private targetWatchers: chokidar.FSWatcher[] = [];
     predefinedIgnores: string[] = [];
@@ -54,6 +53,8 @@ export class StackifyitBiDirectionalSync extends StackifyitBase{
      */
     async startWatch(): Promise<void> {
         await this.stopWatch();
+        this.createStopPromise();
+
         const patterns = await this.allGlobs();
         const sourcePatterns = singleGlobToList(this.options.rootDirectory, patterns);
         this.sourceWatcher = chokidar.watch(sourcePatterns, {
@@ -94,12 +95,11 @@ export class StackifyitBiDirectionalSync extends StackifyitBase{
         if (this.sourceWatcher) {
             await this.sourceWatcher.close();
         }
-
         for (const targetWatcher of this.targetWatchers) {
             await targetWatcher.close();
         }
-
         this.targetWatchers = [];
+        this.stopResolve();
     }
 
     /**

@@ -3,21 +3,20 @@ import fs from 'fs/promises';
 import path from 'path';
 import { correctPaths, filePathsFromGlob, singleGlobToList, correctPaths as windowsPathToNode } from './tools/helpers/glob-helpers';
 import { readGitignore } from "./tools/helpers/readGitIngore";
-import { StackifyitBase, StackifyitOptionsBase } from "./StackifyItBase.abstract";
+import { StackifyitFileWatcherBase, StackifyitOptionsBase } from "./models/StackifyitFileWatcherBase.abstract";
 
 const predefinedIgnores: string[] = ['!**/.git/**'];
 
 export type StackifyitFileCombineOptions = StackifyitOptionsBase & {
     sourceGlob: string;
     outputPaths: string[];
-    useGitIngnoreFile?: string;
 }
 
 /**
  * StackifyitFileCombine class.
  * This class is responsible for combining files.
  */
-export class StackifyitFileCombine extends StackifyitBase {
+export class StackifyitFileCombine extends StackifyitFileWatcherBase {
     debug: boolean = false;
     watcher!: chokidar.FSWatcher;
     predefinedIgnores: string[] = [];
@@ -34,7 +33,7 @@ export class StackifyitFileCombine extends StackifyitBase {
         this.predefinedIgnores = [...predefinedIgnores];
         if (this.options.useGitIngnoreFile) {
             const gitIngnoreList = await readGitignore(this.pathfromRoot(this.options.useGitIngnoreFile));
-            console.log('gitIngnoreList', ...gitIngnoreList)
+            this.log('gitIngnoreList', ...gitIngnoreList)
             this.predefinedIgnores.push(...gitIngnoreList);
         }
 
@@ -47,7 +46,7 @@ export class StackifyitFileCombine extends StackifyitBase {
             ...sourceGlobs,
             ...this.predefinedIgnores
         ].join(',')
-        console.log('allGlobs', result)
+        this.log('allGlobs', result)
         return result;
     }
 
@@ -57,9 +56,10 @@ export class StackifyitFileCombine extends StackifyitBase {
      */
     async startWatch(): Promise<void> {
         await this.stopWatch();
-        const patterns = await this.allGlobs();
-        this.predefinedIgnores.push(...predefinedIgnores);
-        this.watcher = chokidar.watch(patterns, {
+        this.createStopPromise();
+        
+        const sourcePatterns = singleGlobToList(this.options.rootDirectory, await this.allGlobs());
+        this.watcher = chokidar.watch(sourcePatterns, {
             persistent: true,
             ignoreInitial: false // do not ignore any files
         });
@@ -67,9 +67,8 @@ export class StackifyitFileCombine extends StackifyitBase {
         this.watcher.on('change', (filePath) => {
             this.log(`File changed: ${filePath}`);
             this.combine();
-        });
-
-        this.log(`Watching ${this.options.sourceGlob} in ${this.options.rootDirectory}`);
+        });  
+        this.log(`Watching "${this.options.sourceGlob}" in ${this.options.rootDirectory}`);
     }
 
     /**
@@ -80,6 +79,7 @@ export class StackifyitFileCombine extends StackifyitBase {
         if (this.watcher) {
             await this.watcher.close();
         }
+        this.stopResolve();   
     }
 
     /**
